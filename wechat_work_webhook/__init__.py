@@ -8,51 +8,40 @@ import hashlib
 import pathlib
 import logging
 
+from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_not_exception_type
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s [%(threadName)s]")
 logger = logging.getLogger(__name__)
 
-proxies = None
+@retry(wait=wait_random_exponential(multiplier=1, max=60))
+def POST(**kwargs):
 
-def setProxy(p):
-	global proxies
-	if p is not None and type(p) == dict:
+        logger.debug(f"""{kwargs=}""")
 
-		proxies = p
-		logger.debug(f"Setting Proxy using {p=} and {proxies=}")
-		return True
-	return False
+        if kwargs.get("proxies") is not None:
+            logger.debug(f"""{kwargs.get("proxies")=} is used for requests()""")
 
-def POST(retry=5, retry_delay=5, silent=True, **kwargs):
-#def POST(retry=5, retry_delay=5, silent=False, **kwargs):
-	retried = 0
-	while retried < retry:
-		try:
-			if proxies is None:
-				logger.debug(f"{proxies=}, skipped for requests()")
-				return requests.post(**kwargs)
-			else:
-				logger.debug(f"{proxies=} is used for requests()")
-				return requests.post(proxies=proxies, **kwargs)
-		except Exception as e:
-			time.sleep(retry_delay)
-			retried += 1
-			if not silent:
-				print(repr(e))
-				print(traceback.format_exc())
-				print(f"REQUEST FAILED FOR {retried} TIMES. RETRYING...")
-				print(e)
-	raise Exception('DOWNLOAD FAILED')
+        return requests.post(**kwargs)
     
 def connect(webhook_url):
     return WechatWorkWebhook(webhook_url)
 
 class WechatWorkWebhook:
-#    headers = {"Content-Type": "text/plain"}
     headers = {"Content-Type": "application/json"}
+    proxies = None
     
     def __init__(self, webhook_url):
         self.webhook_url = webhook_url
-        
+
+    def setProxy(self, p):
+        if p is not None and type(p) == dict:
+
+            self.proxies = p
+            logger.debug(f"Setting Proxy using {p=} and {self.proxies=}")
+            return True
+
+        return False
+
     def text(self, text, mentioned_list=[], mentioned_mobile_list=[]):
         data = {
               "msgtype": "text",
@@ -62,8 +51,8 @@ class WechatWorkWebhook:
                   "mentioned_mobile_list": mentioned_mobile_list
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
     
     def markdown(self, markdown):
         data = {
@@ -72,8 +61,8 @@ class WechatWorkWebhook:
                   "content": markdown
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
 
     def markdown_v2(self, markdown):
         data = {
@@ -82,8 +71,8 @@ class WechatWorkWebhook:
                   "content": markdown
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
 
     
     def image(self, image_path):
@@ -98,8 +87,8 @@ class WechatWorkWebhook:
                  "md5": image_md5
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
     
     def df(self, df):
         'convert df into image and upload'
@@ -121,8 +110,8 @@ class WechatWorkWebhook:
                  "md5": image_md5
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
     
     def news(self, articles):
         data = {
@@ -131,8 +120,8 @@ class WechatWorkWebhook:
                   "articles": articles
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
 
     def media(self, media_id):
         data = {
@@ -141,14 +130,13 @@ class WechatWorkWebhook:
                   "media_id": media_id
               }
            }
-#        return requests.post(self.webhook_url, headers=self.headers, json=data).json()
-        return POST(self.webhook_url, headers=self.headers, json=data).json()
+
+        return POST(url=self.webhook_url, headers=self.headers, json=data, proxies=self.proxies).json()
     
     def upload_media(self, file_path):
         upload_url = self.webhook_url.replace('send', 'upload_media') + '&type=file'
 
-#        return requests.post(upload_url, files=[('media', open(file_path, 'rb'))]).json()
-        return POST(upload_url, files=[('media', open(file_path, 'rb'))]).json()  
+        return POST(upload_url, files=[('media', open(file_path, 'rb'))], proxies=self.proxies).json()  
 
     def file(self, file_path):
         media_id = self.upload_media(file_path)['media_id']
