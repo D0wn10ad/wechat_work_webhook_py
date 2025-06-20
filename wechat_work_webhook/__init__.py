@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 @retry(wait=wait_random_exponential(multiplier=1, max=60))
 def POST(**kwargs):
 
-        logger.debug(f"""{kwargs=}""")
+    logger.debug(f"""{kwargs=}""")
 
-        if kwargs.get("proxies") is not None:
-            logger.debug(f"""{kwargs.get("proxies")=} is used for requests()""")
+    if kwargs.get("proxies") is not None:
+        logger.debug(f"""{kwargs.get("proxies")=} is used for requests()""")
 
-        return requests.post(**kwargs)
+    return requests.post(**kwargs)
     
 def connect(webhook_url):
     return WechatWorkWebhook(webhook_url)
